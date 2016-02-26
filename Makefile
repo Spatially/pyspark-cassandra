@@ -3,7 +3,8 @@ VERSION = $(shell cat version.txt)
 
 .PHONY: clean clean-pyc clean-dist dist test-travis
 
-
+export JVM_OPTS = -XX:Xms512M -XX:Xmx1024M -XX:Xss1M -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=256M
+export SBT_OPTS = -D$(SCALA_NAME)=true
 
 clean: clean-dist clean-pyc
 
@@ -22,17 +23,17 @@ clean-dist:
 
 install-venv:
 	test -d venv || virtualenv venv
-	
+
 install-cassandra-driver: install-venv
 	venv/bin/pip install cassandra-driver
-	
+
 install-ccm: install-venv
 	venv/bin/pip install ccm
 
-start-cassandra: install-ccm	
+start-cassandra: install-ccm
 	mkdir -p .ccm
 	venv/bin/ccm status || venv/bin/ccm create pyspark_cassandra_test -v $(CASSANDRA_VERSION) -n 1 -s
-	
+
 stop-cassandra:
 	venv/bin/ccm remove
 
@@ -46,15 +47,15 @@ test-scala:
 
 test-integration: \
 	test-integration-setup \
-	test-integration-matrix \	
+	test-integration-matrix \
 	test-integration-teardown
-	
+
 test-integration-setup: \
 	start-cassandra
 
 test-integration-teardown: \
 	stop-cassandra
-	
+
 test-integration-matrix: \
 	install-cassandra-driver \
 	test-integration-spark-1.4.1 \
@@ -87,10 +88,10 @@ test-integration-spark-1.6.0:
 define test-integration-for-version
 	echo ======================================================================
 	echo testing integration with spark-$1
-	
+
 	mkdir -p lib && test -d lib/spark-$1-bin-$2 || \
 		(pushd lib && curl http://ftp.tudelft.nl/apache/spark/spark-$1/spark-$1-bin-$2.tgz | tar xz && popd)
-	
+
 	cp log4j.properties lib/spark-$1-bin-$2/conf/
 
 	source venv/bin/activate ; \
@@ -98,10 +99,10 @@ define test-integration-for-version
 			--master local[*] \
 			--driver-memory 512m \
 			--conf spark.cassandra.connection.host="localhost" \
-			--jars target/scala-2.10/pyspark-cassandra-assembly-$(VERSION).jar \
+			--jars target/scala-2.11/pyspark-cassandra-assembly-$(VERSION).jar \
 			--py-files target/pyspark_cassandra-$(VERSION)-py2.7.egg \
 			python/pyspark_cassandra/tests.py
-			
+
 	echo ======================================================================
 endef
 
@@ -115,7 +116,7 @@ dist-python:
 	rm -rf python/*.egg-info
 
 dist-scala:
-	sbt compile assembly
+	sbt package
 
 
 all: clean dist
